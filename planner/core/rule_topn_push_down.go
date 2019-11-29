@@ -15,6 +15,7 @@ package core
 
 import (
 	"context"
+	"github.com/pingcap/parser/ast"
 
 	"github.com/cznic/mathutil"
 	"github.com/pingcap/tidb/expression"
@@ -66,10 +67,53 @@ func (lt *LogicalTopN) setChild(p LogicalPlan) LogicalPlan {
 	return lt
 }
 
+func extractEqualConditions(plan LogicalPlan) (ret []*expression.ScalarFunction) {
+	if len(plan.Children()) > 0 {
+		ret = extractEqualConditions(plan.Children()[0])
+	}
+	switch x := plan.(type) {
+	case *LogicalJoin:
+		rCond := extractEqualConditions(x.children[1])
+		return append(append(ret, rCond...), x.EqualConditions...)
+	case *LogicalSelection:
+		for _, cond := range x.Conditions {
+			if sf, isSF := cond.(*expression.ScalarFunction); isSF && sf.FuncName.L == ast.EQ {
+				ret = append(ret, sf)
+			}
+		}
+	case *DataSource:
+		for _, cond := range x.allConds {
+			if sf, isSF := cond.(*expression.ScalarFunction); isSF && sf.FuncName.L == ast.EQ {
+				ret = append(ret, sf)
+			}
+		}
+	}
+	return ret
+}
+
 func (ls *LogicalSort) pushDownTopN(topN *LogicalTopN) LogicalPlan {
 	if topN == nil {
 		return ls.baseLogicalPlan.pushDownTopN(nil)
 	} else if topN.isLimit() {
+		conds := extractEqualConditions(ls.Children()[0])
+		for i := len(ls.ByItems) - 1; i >= 0; i-- {
+			if col, isCol := ls.ByItems[i].Expr.(*expression.Column); isCol {
+				for _, cond := range conds {
+					if cond.FuncName.L == ast.EQ {
+						if equalCol, isEqualCol := cond.GetArgs()[0].(*expression.Column); isEqualCol && equalCol.UniqueID == col.UniqueID {
+							if _, isConst := cond.GetArgs()[1].(*expression.Constant); isConst {
+								ls.ByItems = append(ls.ByItems[:i], ls.ByItems[i+1:]...)
+							}
+						}
+						if equalCol, isEqualCol := cond.GetArgs()[1].(*expression.Column); isEqualCol && equalCol.UniqueID == col.UniqueID {
+							if _, isConst := cond.GetArgs()[0].(*expression.Constant); isConst {
+								ls.ByItems = append(ls.ByItems[:i], ls.ByItems[i+1:]...)
+							}
+						}
+					}
+				}
+			}
+		}
 		topN.ByItems = ls.ByItems
 		return ls.children[0].pushDownTopN(topN)
 	}

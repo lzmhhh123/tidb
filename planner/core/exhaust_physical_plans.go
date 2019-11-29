@@ -54,8 +54,9 @@ func getMaxSortPrefix(sortCols, allCols []*expression.Column) []int {
 	return sortColOffsets
 }
 
-func findMaxPrefixLen(candidates [][]*expression.Column, keys []*expression.Column) int {
+func findMaxPrefixLen(candidates [][]*expression.Column, keys []*expression.Column) (int, []*expression.Column) {
 	maxLen := 0
+	var ret []*expression.Column
 	for _, candidateKeys := range candidates {
 		matchedLen := 0
 		for i := range keys {
@@ -67,9 +68,10 @@ func findMaxPrefixLen(candidates [][]*expression.Column, keys []*expression.Colu
 		}
 		if matchedLen > maxLen {
 			maxLen = matchedLen
+			ret = candidateKeys[:maxLen]
 		}
 	}
-	return maxLen
+	return maxLen, ret
 }
 
 func (p *LogicalJoin) moveEqualToOtherConditions(offsets []int) []expression.Expression {
@@ -94,9 +96,9 @@ func (p *LogicalJoin) moveEqualToOtherConditions(offsets []int) []expression.Exp
 }
 
 // Only if the input required prop is the prefix fo join keys, we can pass through this property.
-func (p *PhysicalMergeJoin) tryToGetChildReqProp(prop *property.PhysicalProperty) ([]*property.PhysicalProperty, bool) {
-	lProp := property.NewPhysicalProperty(property.RootTaskType, p.LeftKeys, false, math.MaxFloat64, false)
-	rProp := property.NewPhysicalProperty(property.RootTaskType, p.RightKeys, false, math.MaxFloat64, false)
+func (p *PhysicalMergeJoin) tryToGetChildReqProp(prop *property.PhysicalProperty, leftProps, rightProps []*expression.Column) ([]*property.PhysicalProperty, bool) {
+	lProp := property.NewPhysicalProperty(property.RootTaskType, leftProps, false, math.MaxFloat64, false)
+	rProp := property.NewPhysicalProperty(property.RootTaskType, rightProps, false, math.MaxFloat64, false)
 	if !prop.IsEmpty() {
 		// sort merge join fits the cases of massive ordered data, so desc scan is always expensive.
 		all, desc := prop.AllSameOrder()
@@ -117,20 +119,38 @@ func (p *PhysicalMergeJoin) tryToGetChildReqProp(prop *property.PhysicalProperty
 	return []*property.PhysicalProperty{lProp, rProp}, true
 }
 
+func (p *LogicalJoin) getPossiblePropsByJoinKeys(items []property.Item, idx int, leftJoinKeys, rightJoinKeys []*expression.Column) [][]property.Item {
+	if idx < 0 {
+		return [][]property.Item{[]property.Item{}}
+	}
+	props := p.getPossiblePropsByJoinKeys(items, idx-1, leftJoinKeys, rightJoinKeys)
+	for i, prop := range props {
+		props[i] = append(prop, items[idx])
+	}
+	for rightIdx, rightKey := range rightJoinKeys {
+		if items[idx].Col.UniqueID == rightKey.UniqueID {
+			for _, prop := range props {
+				props = append(props, append(prop[:len(prop)-1], property.Item{Col: leftJoinKeys[rightIdx], Desc: items[idx].Desc}))
+			}
+		}
+	}
+	return props
+}
+
 func (p *LogicalJoin) getMergeJoin(prop *property.PhysicalProperty) []PhysicalPlan {
 	joins := make([]PhysicalPlan, 0, len(p.leftProperties))
 	// The leftProperties caches all the possible properties that are provided by its children.
 	for _, lhsChildProperty := range p.leftProperties {
 		offsets := getMaxSortPrefix(lhsChildProperty, p.LeftJoinKeys)
-		if len(offsets) == 0 {
+		if len(offsets) == 0 && len(p.LeftJoinKeys) != 0 {
 			continue
 		}
 
 		leftKeys := lhsChildProperty[:len(offsets)]
 		rightKeys := expression.NewSchema(p.RightJoinKeys...).ColumnsByIndices(offsets)
 
-		prefixLen := findMaxPrefixLen(p.rightProperties, rightKeys)
-		if prefixLen == 0 {
+		prefixLen, rhsChildProperty := findMaxPrefixLen(p.rightProperties, rightKeys)
+		if prefixLen == 0 && len(p.LeftJoinKeys) != 0 {
 			continue
 		}
 
@@ -148,16 +168,24 @@ func (p *LogicalJoin) getMergeJoin(prop *property.PhysicalProperty) []PhysicalPl
 		mergeJoin.SetSchema(p.schema)
 		mergeJoin.OtherConditions = p.moveEqualToOtherConditions(offsets)
 		mergeJoin.initCompareFuncs()
-		if reqProps, ok := mergeJoin.tryToGetChildReqProp(prop); ok {
-			// Adjust expected count for children nodes.
-			if prop.ExpectedCnt < p.stats.RowCount {
-				expCntScale := prop.ExpectedCnt / p.stats.RowCount
-				reqProps[0].ExpectedCnt = p.children[0].statsInfo().RowCount * expCntScale
-				reqProps[1].ExpectedCnt = p.children[1].statsInfo().RowCount * expCntScale
+		props := p.getPossiblePropsByJoinKeys(prop.Items, len(prop.Items)-1, p.LeftJoinKeys, p.RightJoinKeys)
+		for _, propItems := range props {
+			newProp := *prop
+			newProp.Items = propItems
+			if reqProps, ok := mergeJoin.tryToGetChildReqProp(&newProp, lhsChildProperty, rhsChildProperty); ok {
+				reqProps[0] = property.NewPhysicalProperty(property.RootTaskType, leftKeys, false, math.MaxFloat64, false)
+				reqProps[1] = property.NewPhysicalProperty(property.RootTaskType, rightKeys, false, math.MaxFloat64, false)
+				// Adjust expected count for children nodes.
+				if prop.ExpectedCnt < p.stats.RowCount {
+					expCntScale := prop.ExpectedCnt / p.stats.RowCount
+					reqProps[0].ExpectedCnt = p.children[0].statsInfo().RowCount * expCntScale
+					reqProps[1].ExpectedCnt = p.children[1].statsInfo().RowCount * expCntScale
+				}
+				mergeJoin.childrenReqProps = reqProps
+				joins = append(joins, mergeJoin)
 			}
-			mergeJoin.childrenReqProps = reqProps
-			joins = append(joins, mergeJoin)
 		}
+
 	}
 	// If TiDB_SMJ hint is existed && no join keys in children property,
 	// it should to enforce merge join.

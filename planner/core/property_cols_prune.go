@@ -125,6 +125,38 @@ func (p *LogicalJoin) preparePossibleProperties() [][]*expression.Column {
 		resultProperties[leftLen+i] = make([]*expression.Column, len(cols))
 		copy(resultProperties[leftLen+i], cols)
 	}
+	for _, cols := range leftProperties {
+		newProp := make([]*expression.Column, len(cols))
+		copy(newProp, cols)
+		needAppend := false
+		for _, col := range cols {
+			for idx, leftJoinKey := range p.LeftJoinKeys {
+				if col.UniqueID == leftJoinKey.UniqueID {
+					newProp[idx] = p.RightJoinKeys[idx]
+					needAppend = true
+				}
+			}
+		}
+		if needAppend {
+			resultProperties = append(resultProperties, newProp)
+		}
+	}
+	for _, cols := range rightProperties {
+		newProp := make([]*expression.Column, len(cols))
+		copy(newProp, cols)
+		needAppend := false
+		for _, col := range cols {
+			for idx, rightJoinKey := range p.RightJoinKeys {
+				if col.UniqueID == rightJoinKey.UniqueID {
+					newProp[idx] = p.LeftJoinKeys[idx]
+					needAppend = true
+				}
+			}
+		}
+		if needAppend {
+			resultProperties = append(resultProperties, newProp)
+		}
+	}
 	return resultProperties
 }
 
