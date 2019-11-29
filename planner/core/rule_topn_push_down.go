@@ -100,12 +100,14 @@ func (ls *LogicalSort) pushDownTopN(topN *LogicalTopN) LogicalPlan {
 			if col, isCol := ls.ByItems[i].Expr.(*expression.Column); isCol {
 				for _, cond := range conds {
 					if cond.FuncName.L == ast.EQ {
-						if equalCol, isEqualCol := cond.GetArgs()[0].(*expression.Column); isEqualCol && equalCol.UniqueID == col.UniqueID {
+						if equalCol, isEqualCol := cond.GetArgs()[0].(*expression.Column); isEqualCol &&
+							equalCol.OrigColName == col.OrigColName && equalCol.OrigTblName == col.OrigTblName {
 							if _, isConst := cond.GetArgs()[1].(*expression.Constant); isConst {
 								ls.ByItems = append(ls.ByItems[:i], ls.ByItems[i+1:]...)
 							}
 						}
-						if equalCol, isEqualCol := cond.GetArgs()[1].(*expression.Column); isEqualCol && equalCol.UniqueID == col.UniqueID {
+						if equalCol, isEqualCol := cond.GetArgs()[1].(*expression.Column); isEqualCol &&
+							equalCol.OrigColName == col.OrigColName && equalCol.OrigTblName == col.OrigTblName {
 							if _, isConst := cond.GetArgs()[0].(*expression.Constant); isConst {
 								ls.ByItems = append(ls.ByItems[:i], ls.ByItems[i+1:]...)
 							}
