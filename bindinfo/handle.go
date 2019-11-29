@@ -16,7 +16,6 @@ package bindinfo
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/sqlexec"
+	"go.uber.org/zap"
 )
 
 // BindHandle is used to handle all global sql bind operations.
@@ -396,10 +396,16 @@ func copyInvalidBindRecordMap(oldMap map[string]*invalidBindRecordMap) map[strin
 }
 
 func (c cache) getBindRecord(hash, normdOrigSQL, db string) *BindMeta {
+	// debug.PrintStack()
+	// for k, v := range c {
+	// 	log.Println("cache:", k, v)
+	// }
+	// log.Printf("hash %v, normdOrigSQL: %v, db: %v", hash, normdOrigSQL, db)
 	bindRecords := c[hash]
 	if bindRecords != nil {
 		for _, bindRecord := range bindRecords {
 			if bindRecord.OriginalSQL == normdOrigSQL && bindRecord.Db == db {
+				// log.Println("found!!", bindRecord.OriginalSQL, normdOrigSQL, bindRecord.Db, db)
 				return bindRecord
 			}
 		}

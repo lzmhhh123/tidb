@@ -48,6 +48,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/blacktear23/go-proxyprotocol"
+	reuseport "github.com/kavu/go_reuseport"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/parser/mysql"
 	"github.com/pingcap/parser/terror"
@@ -213,7 +214,7 @@ func NewServer(cfg *config.Config, driver IDriver) (*Server, error) {
 
 	if s.cfg.Host != "" && s.cfg.Port != 0 {
 		addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-		if s.listener, err = net.Listen("tcp", addr); err == nil {
+		if s.listener, err = reuseport.Listen("tcp", addr); err == nil {
 			logutil.Logger(context.Background()).Info("server is running MySQL protocol", zap.String("addr", addr))
 			if cfg.Socket != "" {
 				if s.socket, err = net.Listen("unix", s.cfg.Socket); err == nil {

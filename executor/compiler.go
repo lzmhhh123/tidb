@@ -393,7 +393,10 @@ func addHint(ctx sessionctx.Context, stmtNode ast.StmtNode) ast.StmtNode {
 		}
 		return x
 	case *ast.SelectStmt:
-		normalizeSQL, hash := parser.NormalizeDigest(x.Text())
+		normalizeSQL := parser.Normalize(x.Text())
+		hash := parser.DigestHash(normalizeSQL)
+		// normalizeSQL, hash := parser.NormalizeDigest(x.Text())
+		// log.Println("NormalizeDigest", x.Text(), hash)
 		return addHintForSelect(hash, normalizeSQL, ctx, x)
 	default:
 		return stmtNode

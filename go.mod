@@ -25,6 +25,7 @@ require (
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/grpc-gateway v1.5.1 // indirect
+	github.com/kavu/go_reuseport v1.4.0
 	github.com/klauspost/cpuid v0.0.0-20170728055534-ae7887de9fa5
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/montanaflynn/stats v0.0.0-20180911141734-db72e6cae808 // indirect
