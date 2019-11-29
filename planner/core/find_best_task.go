@@ -117,7 +117,11 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 	physicalPlans := p.self.exhaustPhysicalPlans(prop)
 	prop.Items = oldPropCols
 
+	hasLimit := false
 	for _, pp := range physicalPlans {
+		if _, isTopn := pp.(*PhysicalTopN); isTopn && hasLimit {
+			continue
+		}
 		// find best child tasks firstly.
 		childTasks = childTasks[:0]
 		for i, child := range p.children {
@@ -138,6 +142,12 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 
 		// combine best child tasks with parent physical plan.
 		curTask := pp.attach2Task(childTasks...)
+
+		if _, isLimit := pp.(*PhysicalLimit); isLimit {
+			bestTask = curTask
+			hasLimit = true
+			continue
+		}
 
 		// enforce curTask property
 		if prop.Enforced {
