@@ -373,6 +373,7 @@ const (
 	// see https://github.com/pingcap/tidb/pull/14574 for more details.
 	version40 = 40
 	version41 = 41
+	version42 = 42
 )
 
 func checkBootstrapped(s Session) (bool, error) {
@@ -595,6 +596,10 @@ func upgrade(s Session) {
 
 	if ver < version41 {
 		upgradeToVer41(s)
+	}
+
+	if ver < version42 {
+		upgradeToVer42(s)
 	}
 
 	updateBootstrapVer(s)
@@ -968,6 +973,10 @@ func upgradeToVer40(s Session) {
 func upgradeToVer41(s Session) {
 	doReentrantDDL(s, "ALTER TABLE mysql.user CHANGE `password` `authentication_string` TEXT", infoschema.ErrColumnExists, infoschema.ErrColumnNotExists)
 	doReentrantDDL(s, "ALTER TABLE mysql.user ADD COLUMN `password` TEXT as (`authentication_string`)", infoschema.ErrColumnExists)
+}
+
+func upgradeToVer42(s Session) {
+	mustExecute(s, "DELETE FROM mysql.GLOBAL_VARIABLES WHERE VARIABLE_NAME = \"tidb_isolation_read_engines\"")
 }
 
 // updateBootstrapVer updates bootstrap version variable in mysql.TiDB table.
