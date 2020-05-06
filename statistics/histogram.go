@@ -463,6 +463,11 @@ func (hg *Histogram) SplitRange(sc *stmtctx.StatementContext, oldRanges []*range
 			idx++
 		}
 		lowerBound := hg.Bounds.GetRow(idx)
+		logutil.Logger(context.Background()).Info("feedback split ranges in iteration",
+			zap.Int("bound idx", idx),
+			zap.Int64("Histogram.ID", hg.ID),
+			zap.Int("len(remain ranges)", len(ranges)))
+
 		var i int
 		// Find the first range that need to be split by the lower bound.
 		for ; i < len(ranges); i++ {

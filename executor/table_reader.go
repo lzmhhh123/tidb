@@ -16,6 +16,8 @@ package executor
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/util/logutil"
+	"go.uber.org/zap"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -108,6 +110,14 @@ func (e *TableReaderExecutor) Open(ctx context.Context) error {
 	e.resultHandler = &tableResultHandler{}
 	if e.feedback != nil && e.feedback.Hist != nil {
 		// EncodeInt don't need *statement.Context.
+		logutil.Logger(context.Background()).Info("feedback split ranges meta info",
+			zap.Bool("InRestrictedSQL", e.ctx.GetSessionVars().InRestrictedSQL),
+			zap.Int64("feedback.Hist.ID", e.feedback.Hist.ID),
+			zap.String("tableReader.tableName", e.table.Meta().Name.L),
+			zap.Int("len(TableReaderExecutor.ranges)", len(e.ranges)),
+			zap.Any("e.ranges", e.ranges),
+			zap.Int("len(feedback.Hist.buckets)", len(e.feedback.Hist.Buckets)),
+			zap.Int("feedback.Hist.bounds.NumRows()", e.feedback.Hist.Bounds.NumRows()))
 		var ok bool
 		e.ranges, ok = e.feedback.Hist.SplitRange(nil, e.ranges, false)
 		if !ok {
