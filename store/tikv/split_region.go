@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -128,42 +129,13 @@ func (s *tikvStore) batchSendSingleRegion(ctx context.Context, bo *Backoffer, ba
 			return batchResp
 		default:
 		}
-		url := fmt.Sprintf("http://%s/pd/api/v1/regions/check?id=%v", config.GetGlobalConfig().Path, batch.regionID.GetID())
-		logutil.BgLogger().Error("split table check url",
-			zap.String("url", url))
-		resp, err := http.Get(url)
-		if err != nil {
-			logutil.BgLogger().Error("failed to check region during split table check",
-				zap.Uint64("regionID", batch.regionID.id),
-				zap.Error(err))
-		}
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logutil.BgLogger().Error("failed to check region during split table check",
-				zap.Uint64("regionID", batch.regionID.id),
-				zap.Error(err))
-		}
-		resp.Body.Close()
-		responseData := string(body)
-		// remove \n
-		responseData = responseData[:len(responseData)-1]
-		if resp.StatusCode != http.StatusOK {
-			logutil.BgLogger().Error("failed to check region during split table check",
-				zap.Uint64("regionID", batch.regionID.id),
-				zap.String("data", responseData), zap.Int("code", resp.StatusCode))
-		}
-		pass, err := strconv.ParseBool(responseData)
-		if err != nil {
-			logutil.BgLogger().Error("failed to check region during split table check",
-				zap.Uint64("regionID", batch.regionID.id),
-				zap.Error(err))
-		}
-		if pass {
-			logutil.BgLogger().Info("split table single region check pass", zap.Uint64("regionID", batch.regionID.id))
-			break
-		} else {
+		pass, err := s.checkRegionBeforeSplitSingleRegion(batch)
+		if err != nil || !pass {
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
+		logutil.BgLogger().Info("split table single region check pass", zap.Uint64("regionID", batch.regionID.id))
+		break
 	}
 
 	req := tikvrpc.NewRequest(tikvrpc.CmdSplitRegion, &kvrpcpb.SplitRegionRequest{
@@ -241,6 +213,47 @@ func (s *tikvStore) batchSendSingleRegion(ctx context.Context, bo *Backoffer, ba
 		}
 	}
 	return batchResp
+}
+
+func (s *tikvStore) checkRegionBeforeSplitSingleRegion(batch batch) (bool, error) {
+	url := fmt.Sprintf("http://%s/pd/api/v1/regions/check?id=%v", config.GetGlobalConfig().Path, batch.regionID.GetID())
+	logutil.BgLogger().Info("split table check url",
+		zap.String("url", url))
+	resp, err := http.Get(url)
+	if err != nil {
+		logutil.BgLogger().Error("failed to check region during split table check",
+			zap.Uint64("regionID", batch.regionID.id),
+			zap.Error(err))
+		return false, err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logutil.BgLogger().Error("failed to check region during split table check",
+			zap.Uint64("regionID", batch.regionID.id),
+			zap.Error(err))
+		return false, err
+	}
+	resp.Body.Close()
+	responseData := string(body)
+	// remove \n
+	responseData = responseData[:len(responseData)-1]
+	if resp.StatusCode != http.StatusOK {
+		logutil.BgLogger().Error("failed to check region during split table check",
+			zap.Uint64("regionID", batch.regionID.id),
+			zap.String("data", responseData), zap.Int("code", resp.StatusCode))
+		return false, err
+	}
+	pass, err := strconv.ParseBool(responseData)
+	if err != nil {
+		logutil.BgLogger().Error("failed to check region during split table check",
+			zap.Uint64("regionID", batch.regionID.id),
+			zap.Error(err))
+		return false, err
+	}
+	if pass {
+		return true, nil
+	}
+	return false, nil
 }
 
 // SplitRegions splits regions by splitKeys.
