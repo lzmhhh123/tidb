@@ -145,12 +145,14 @@ func (s *tikvStore) batchSendSingleRegion(ctx context.Context, bo *Backoffer, ba
 		}
 		resp.Body.Close()
 		responseData := string(body)
+		// remove \n
+		responseData = responseData[:len(responseData)-1]
 		if resp.StatusCode != http.StatusOK {
 			logutil.BgLogger().Error("failed to check region during split table check",
 				zap.Uint64("regionID", batch.regionID.id),
 				zap.String("data", responseData), zap.Int("code", resp.StatusCode))
 		}
-		pass, err := strconv.ParseBool(string(body))
+		pass, err := strconv.ParseBool(responseData)
 		if err != nil {
 			logutil.BgLogger().Error("failed to check region during split table check",
 				zap.Uint64("regionID", batch.regionID.id),
