@@ -253,6 +253,7 @@ func (s *tikvStore) checkRegionBeforeSplitSingleRegion(batch batch) (bool, error
 	if pass {
 		return true, nil
 	}
+	logutil.BgLogger().Info("split table single region check forbidden", zap.Uint64("regionID", batch.regionID.id))
 	return false, nil
 }
 
