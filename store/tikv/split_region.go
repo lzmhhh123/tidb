@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -216,7 +218,15 @@ func (s *tikvStore) batchSendSingleRegion(ctx context.Context, bo *Backoffer, ba
 }
 
 func (s *tikvStore) checkRegionBeforeSplitSingleRegion(batch batch) (bool, error) {
-	url := fmt.Sprintf("http://%s/pd/api/v1/regions/check?id=%v", config.GetGlobalConfig().Path, batch.regionID.GetID())
+	endpoints := config.GetGlobalConfig().Path
+	var endpoint string
+	if strings.Contains(endpoints, ",") {
+		es := strings.Split(endpoints, ",")
+		endpoint = es[rand.Int()%len(es)]
+	} else {
+		endpoint = endpoints
+	}
+	url := fmt.Sprintf("http://%s/pd/api/v1/regions/check?id=%v", endpoint, batch.regionID.GetID())
 	logutil.BgLogger().Info("split table check url",
 		zap.String("url", url))
 	resp, err := http.Get(url)
