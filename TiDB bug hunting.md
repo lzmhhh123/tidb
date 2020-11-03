@@ -14,6 +14,17 @@
 </ul>
 <p>为了共建 TiDB 良好的稳定性，我们决定进行新一轮的 TiDB Challenge Program。这次的主题是 TiDB bug hunting，同学们可以参与修复目前 TiDB 已发现的种种 bug，既维护了 TiDB 的稳定性，又积累了硬核大型数据库的开发经验，同时还有高额<a href="https://mp.weixin.qq.com/s/_l_wLW2IVnrYTHVvZjR1FA">挑战赛积分</a>可以拿哦。</p>
 <p>欢迎大家加入 TiDB Community Slack Workspace（点击【阅读原文】加入），过程中遇到任何问题都可以直接通过 #sig-planner 或者 #sig-exec 的 channel 与我们取得联系。</p>
+<h2 id="一些常见-bug">一些常见 bug</h2>
+<ol>
+<li><a href="https://github.com/pingcap/tidb/issues/11193">Should check the range of the DECIMAL’s arguments</a><br>
+在执行类型转化函数时，需要检查 decimal 类型的参数是否越界。</li>
+<li><a href="https://github.com/pingcap/tidb/issues/20207">Different error code from MySQL when inserting incorrect time value</a><br>
+插入错误时间类型值的时候，和 MySQL 产生不同的错误码。</li>
+<li><a href="https://github.com/pingcap/tidb/issues/17993">Ambiguous warning when multiply result out of range</a><br>
+当查询结果越界时，出现了一些令人疑惑的 warning 信息。</li>
+<li>…</li>
+</ol>
+<p>我们会在名为 Bug hunting challenge 的 Pinned issue 尽量给出每个 bug 的 “How to fix” 的提示。</p>
 <h2 id="如何参与">如何参与</h2>
 <h3 id="准备">准备</h3>
 <ul>
@@ -30,7 +41,7 @@
 <h3 id="参与">参与</h3>
 <p>参赛全流程包括：查看任务-&gt;领取任务-&gt;实现任务-&gt;提交任务-&gt;评估任务-&gt;获得积分-&gt;积分兑换，其中“获得积分”之前的步骤都将在 GitHub 上实现。</p>
 <p><strong>第一步：查看 Issue</strong></p>
-<p>开放的 Issue 列表可以直接在 <a href="https://github.com/pingcap/tidb/issues">tidb/issues</a> 中看到，这个页面打开后会出现一个 pinned issue “Welcome contributors”。</p>
+<p>开放的 Issue 列表可以直接在 <a href="https://github.com/pingcap/tidb/issues">tidb/issues</a> 中看到，这个页面打开后会出现一个 pinned issue “Bug hunting challenge”。</p>
 <p>pinned 图</p>
 <p>Pinned issue 里面记录的带有 <em>challenge-program</em> 的标签的 issue 都是可以参与完成的。</p>
 <p>pinned detail 图</p>
