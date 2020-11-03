@@ -24,7 +24,7 @@
 当查询结果越界时，出现了一些令人疑惑的 warning 信息。</li>
 <li>…</li>
 </ol>
-<p>我们会在名为 Bug hunting challenge 的 Pinned issue 尽量给出每个 bug 的 “How to fix” 的提示。</p>
+<p>我们会在名为 Bug hunting challenge 的 <a href="https://github.com/pingcap/tidb/issues/pinnedissuenumber">Pinned issue</a> 中，尽量给出每个 bug 的 “How to fix” 的提示。</p>
 <h2 id="如何参与">如何参与</h2>
 <h3 id="准备">准备</h3>
 <ul>
@@ -55,7 +55,7 @@
 <p><strong>第三步：实现代码</strong></p>
 <p>在实现代码的过程中如果遇到问题，可以通过 #sig-planner 或 #sig-exec channel 与我们进行探讨，Issue 指定的 Mentor 会尽可能在 24h 内予以回复。不过，在提出问题之前一定要确保你已经仔细阅读过题目内容，并且已经完成了参考资料的学习哦～</p>
 <p><strong>第四步：提交代码</strong></p>
-<p>如果你觉得你的方案已经达到了题目的要求，可在相关 Repo（例如 tidb）的 master 分支上实现你的方案，并将代码以 GitHub Pull Request（简称 PR）的形式提交到相应的 GitHub Repo 上。当 PR 提交后，可在 PR 的评论中 使用 “/cc @Mentor” at Mentor 进行代码评审，Mentor 会尽可能在方案提交后的 48h 内完成评估。</p>
+<p>如果你觉得你的方案已经达到了题目的要求，可在相关 Repo（例如 tidb）的 master 分支上实现你的方案，并将代码以 GitHub Pull Request（简称 PR）的形式提交到相应的 GitHub Repo 上。当 PR 提交后，可在 PR 的评论中 使用 “/cc @&lt;mentor的github ID&gt;” at Mentor 进行代码评审，Mentor 会尽可能在方案提交后的 48h 内完成评估。</p>
 <p><img src="https://i.loli.net/2020/11/03/lMxoAuDvWzpm352.jpg" alt="cc.jpg"></p>
 <p><strong>第五步：代码评估及积分授予</strong></p>
 <p><strong>评估规则</strong>：PR Reviewer 会对 PR 进行代码格式、代码功能和性能的 Review，获得 2 个以上 Reviewer 认可（即在 PR 中评论“LGTM”）的 PR 将会被 merge 到对应 repo 的主干。</p>
