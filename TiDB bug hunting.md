@@ -4,7 +4,7 @@
 ---
 
 <hr>
-<h2 id="title-挑战赛积分不好拿？快来看看-tidb-bug-hunting">title: 挑战赛积分不好拿？快来看看 TiDB bug hunting</h2>
+<h2 id="title-挑战赛积分不好拿？快来看看-tidb-bug-fixing">title: 挑战赛积分不好拿？快来看看 TiDB bug fixing</h2>
 <p>继 <a href="https://mp.weixin.qq.com/s/_l_wLW2IVnrYTHVvZjR1FA">TiDB 4.0 捉"虫"竞赛</a>后，大家在 4.0 的 TiDB 中陆续发现了一些 bug，有且不限于：</p>
 <ul>
 <li>和 MySQL 的兼容性问题</li>
@@ -12,7 +12,7 @@
 <li>正确性问题</li>
 <li>…</li>
 </ul>
-<p>为了共建 TiDB 良好的稳定性，我们决定进行新一轮的 TiDB Challenge Program。这次的主题是 TiDB bug hunting，同学们可以参与修复目前 TiDB 已发现的种种 bug，既维护了 TiDB 的稳定性，又积累了硬核大型数据库的开发经验，同时还有高额<a href="https://mp.weixin.qq.com/s/_l_wLW2IVnrYTHVvZjR1FA">挑战赛积分</a>可以拿哦。</p>
+<p>为了共建 TiDB 良好的稳定性，我们决定进行新一轮的 TiDB Challenge Program。这次的主题是 TiDB bug fixing，同学们可以参与修复目前 TiDB 已发现的种种 bug，既维护了 TiDB 的稳定性，又积累了硬核大型数据库的开发经验，同时还有高额<a href="https://mp.weixin.qq.com/s/_l_wLW2IVnrYTHVvZjR1FA">挑战赛积分</a>可以拿哦。</p>
 <p>欢迎大家加入 TiDB Community Slack Workspace（点击【阅读原文】加入），过程中遇到任何问题都可以直接通过 #sig-planner 或者 #sig-exec 的 channel 与我们取得联系。</p>
 <h2 id="一些常见-bug">一些常见 bug</h2>
 <ol>
@@ -55,7 +55,7 @@
 <p><strong>第三步：实现代码</strong></p>
 <p>在实现代码的过程中如果遇到问题，可以通过 #sig-planner 或 #sig-exec channel 与我们进行探讨，Issue 指定的 Mentor 会尽可能在 24h 内予以回复。不过，在提出问题之前一定要确保你已经仔细阅读过题目内容，并且已经完成了参考资料的学习哦～</p>
 <p><strong>第四步：提交代码</strong></p>
-<p>如果你觉得你的方案已经达到了题目的要求，可在相关 Repo（例如 tidb）的 master 分支上实现你的方案，并将代码以 GitHub Pull Request（简称 PR）的形式提交到相应的 GitHub Repo 上。当 PR 提交后，可在 PR 的评论中 使用 “/cc @&lt;mentor的github ID&gt;” at Mentor 进行代码评审，Mentor 会尽可能在方案提交后的 48h 内完成评估。</p>
+<p>如果你觉得你的方案已经达到了题目的要求，可在相关 Repo（例如 tidb）的 master 分支上实现你的方案，并将代码以 GitHub Pull Request（简称 PR）的形式提交到相应的 GitHub Repo 上。当 PR 提交后，可在 PR 的评论中 使用 “/cc @&lt;mentor的github ID&gt;” at Mentor 进行代码评审，Mentor 会尽可能在方案提交后的 48h 内完成评估，如果你想尽快推进你的 PR，可以在 slack channel 里私聊你的 Mentor。</p>
 <p><img src="https://i.loli.net/2020/11/03/lMxoAuDvWzpm352.jpg" alt="cc.jpg"></p>
 <p><strong>第五步：代码评估及积分授予</strong></p>
 <p><strong>评估规则</strong>：PR Reviewer 会对 PR 进行代码格式、代码功能和性能的 Review，获得 2 个以上 Reviewer 认可（即在 PR 中评论“LGTM”）的 PR 将会被 merge 到对应 repo 的主干。</p>
