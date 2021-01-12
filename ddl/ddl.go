@@ -449,7 +449,8 @@ func checkJobMaxInterval(job *model.Job) time.Duration {
 	if job.Type == model.ActionAddIndex || job.Type == model.ActionAddPrimaryKey {
 		return 3 * time.Second
 	}
-	if job.Type == model.ActionCreateTable || job.Type == model.ActionCreateSchema {
+	if job.Type == model.ActionCreateTable || job.Type == model.ActionCreateSchema ||
+		job.Type == model.ActionCreateOuterTable {
 		return 500 * time.Millisecond
 	}
 	return 1 * time.Second
@@ -485,7 +486,7 @@ func getJobCheckInterval(job *model.Job, i int) (time.Duration, bool) {
 	switch job.Type {
 	case model.ActionAddIndex, model.ActionAddPrimaryKey:
 		return getIntervalFromPolicy(slowDDLIntervalPolicy, i)
-	case model.ActionCreateTable, model.ActionCreateSchema:
+	case model.ActionCreateTable, model.ActionCreateSchema, model.ActionCreateOuterTable:
 		return getIntervalFromPolicy(fastDDLIntervalPolicy, i)
 	default:
 		return getIntervalFromPolicy(normalDDLIntervalPolicy, i)

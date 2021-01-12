@@ -1750,6 +1750,9 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if s.Table.Category.L != "" {
+		tbInfo.OuterOptions = s.OuterArgs
+	}
 
 	if err = checkTableInfoValidWithStmt(ctx, tbInfo, s); err != nil {
 		return err
@@ -1822,6 +1825,8 @@ func (d *ddl) CreateTableWithInfo(
 		args = append(args, onExist == OnExistReplace, oldViewTblID)
 	case tbInfo.Sequence != nil:
 		actionType = model.ActionCreateSequence
+	case len(tbInfo.OuterOptions) > 0:
+		actionType = model.ActionCreateOuterTable
 	default:
 		actionType = model.ActionCreateTable
 	}

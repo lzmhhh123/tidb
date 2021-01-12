@@ -480,8 +480,13 @@ func (e *memtableRetriever) setDataFromTables(ctx sessionctx.Context, schemas []
 					pkType = "COMMON CLUSTERED"
 				}
 				shardingInfo := infoschema.GetShardingInfo(schema, table)
+				catalog := infoschema.CatalogVal
+				if table.Catalog != "" {
+					catalog = table.Catalog
+					tableType = "OUTER TABLE"
+				}
 				record := types.MakeDatums(
-					infoschema.CatalogVal, // TABLE_CATALOG
+					catalog,               // TABLE_CATALOG
 					schema.Name.O,         // TABLE_SCHEMA
 					table.Name.O,          // TABLE_NAME
 					tableType,             // TABLE_TYPE

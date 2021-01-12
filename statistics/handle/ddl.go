@@ -30,7 +30,7 @@ import (
 // HandleDDLEvent begins to process a ddl task.
 func (h *Handle) HandleDDLEvent(t *util.Event) error {
 	switch t.Tp {
-	case model.ActionCreateTable, model.ActionTruncateTable:
+	case model.ActionCreateTable, model.ActionTruncateTable, model.ActionCreateOuterTable:
 		ids := h.getInitStateTableIDs(t.TableInfo)
 		for _, id := range ids {
 			if err := h.insertTableStats2KV(t.TableInfo, id); err != nil {
