@@ -106,6 +106,8 @@ const (
 	nmProxyProtocolNetworks      = "proxy-protocol-networks"
 	nmProxyProtocolHeaderTimeout = "proxy-protocol-header-timeout"
 	nmAffinityCPU                = "affinity-cpus"
+
+	nmFlinkAddr = "flink-addr"
 )
 
 var (
@@ -148,6 +150,8 @@ var (
 	// PROXY Protocol
 	proxyProtocolNetworks      = flag.String(nmProxyProtocolNetworks, "", "proxy protocol networks allowed IP or *, empty mean disable proxy protocol support")
 	proxyProtocolHeaderTimeout = flag.Uint(nmProxyProtocolHeaderTimeout, 5, "proxy protocol header read timeout, unit is second.")
+
+	flinkAddr = flag.String(nmFlinkAddr, "", "flink address")
 )
 
 var (
@@ -517,6 +521,9 @@ func overrideConfig(cfg *config.Config) {
 	}
 	if actualFlags[nmProxyProtocolHeaderTimeout] {
 		cfg.ProxyProtocol.HeaderTimeout = *proxyProtocolHeaderTimeout
+	}
+	if actualFlags[nmFlinkAddr] {
+		cfg.FlinkAddr = *flinkAddr
 	}
 }
 

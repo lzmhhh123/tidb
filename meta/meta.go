@@ -17,7 +17,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,8 +28,10 @@ import (
 	"time"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/parser/format"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -297,6 +302,46 @@ func (m *Meta) checkTableNotExists(dbKey []byte, tableKey []byte) error {
 	return errors.Trace(err)
 }
 
+func checkFlinkDDL(sql string) error {
+	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/ddl", url.Values{"sql": {sql}})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	res, err := parseHttpResp(resp)
+	if err != nil {
+		return err
+	}
+	if res["status"].(string) != "SUCCESS" {
+		return errors.New(res["errorMsg"].(string))
+	}
+	return nil
+}
+
+func restoreCreateOuterDatabase(dbInfo *model.DBInfo) string {
+	return fmt.Sprintf("create database %s.%s", dbInfo.Catalog, dbInfo.Name.L)
+}
+
+// CreateOuterDatabase creates a database with db info.
+func (m *Meta) CreateOuterDatabase(dbInfo *model.DBInfo) error {
+	dbKey := m.dbKey(dbInfo.ID)
+
+	if err := m.checkDBNotExists(dbKey); err != nil {
+		return errors.Trace(err)
+	}
+	err := checkFlinkDDL(restoreCreateOuterDatabase(dbInfo))
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(dbInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.txn.HSet(mDBs, dbKey, data)
+}
+
 // CreateDatabase creates a database with db info.
 func (m *Meta) CreateDatabase(dbInfo *model.DBInfo) error {
 	dbKey := m.dbKey(dbInfo.ID)
@@ -341,6 +386,76 @@ func (m *Meta) CreateTableOrView(dbID int64, tableInfo *model.TableInfo) error {
 	tableKey := m.tableKey(tableInfo.ID)
 	if err := m.checkTableNotExists(dbKey, tableKey); err != nil {
 		return errors.Trace(err)
+	}
+
+	data, err := json.Marshal(tableInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.txn.HSet(dbKey, tableKey, data)
+}
+
+func restoreCreateOuterTableStmt(dbName string, tblInfo *model.TableInfo) (string, error) {
+	fields, err := func() (fields string, err error) {
+		for _, col := range tblInfo.Columns {
+			var sb strings.Builder
+			err = col.FieldType.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags|format.RestoreTpConvertFlinkType, &sb))
+			if err != nil {
+				return "", err
+			}
+			fields += fmt.Sprintf("%s %s,\n", col.Name.L, sb.String())
+		}
+		return fields[:len(fields)-2], nil
+	}()
+	if err != nil {
+		return "", err
+	}
+	options := func() (options string) {
+		for key, value := range tblInfo.OuterOptions {
+			options += fmt.Sprintf(`'%s' = '%s',\n`, key, value)
+		}
+		return options[:len(options)-2]
+	}
+	return fmt.Sprintf(`
+	create table %s.%s.%s {
+		%s
+	} with (
+		%s
+	)`, tblInfo.Catalog, dbName, tblInfo.Name.L, fields, options), nil
+}
+
+func parseHttpResp(resp *http.Response) (map[string]interface{}, error) {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var res map[string]interface{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// CreateOuterTable creates a outer table
+func (m *Meta) CreateOuterTable(dbName string, dbID int64, tableInfo *model.TableInfo) error {
+	dbKey := m.dbKey(dbID)
+	if err := m.checkDBExists(dbKey); err != nil {
+		return errors.Trace(err)
+	}
+	tableKey := m.tableKey(tableInfo.ID)
+	if err := m.checkTableNotExists(dbKey, tableKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	sql, err := restoreCreateOuterTableStmt(dbName, tableInfo)
+	if err != nil {
+		return err
+	}
+	err = checkFlinkDDL(sql)
+	if err != nil {
+		return err
 	}
 
 	data, err := json.Marshal(tableInfo)
@@ -397,6 +512,25 @@ func (m *Meta) RestartSequenceValue(dbID int64, tableInfo *model.TableInfo, seqV
 	return errors.Trace(m.txn.HSet(m.dbKey(dbID), m.sequenceKey(tableInfo.ID), []byte(strconv.FormatInt(seqValue, 10))))
 }
 
+func restoreDropOuterDatabase(dbInfo *model.DBInfo) string {
+	return fmt.Sprintf("drop database %s.%s", dbInfo.Catalog, dbInfo.Name.L)
+}
+
+// DropOuterDatabase drops whole database.
+func (m *Meta) DropOuterDatabase(dbInfo *model.DBInfo) error {
+	// Check if db exists.
+	dbKey := m.dbKey(dbInfo.ID)
+	if err := m.txn.HClear(dbKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := m.txn.HDel(mDBs, dbKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	return checkFlinkDDL(restoreDropOuterDatabase(dbInfo))
+}
+
 // DropDatabase drops whole database.
 func (m *Meta) DropDatabase(dbID int64) error {
 	// Check if db exists.
@@ -421,6 +555,18 @@ func (m *Meta) DropSequence(dbID int64, tblID int64, delAutoID bool) error {
 	}
 	err = m.txn.HDel(m.dbKey(dbID), m.sequenceKey(tblID))
 	return errors.Trace(err)
+}
+
+func restoreDropOuterTable(dbName string, tblInfo *model.TableInfo) string {
+	return fmt.Sprintf("drop table %s.%s.%s", tblInfo.Catalog, dbName, tblInfo.Name.L)
+}
+
+func (m *Meta) DropOuterTable(dbId int64, dbName string, tblInfo *model.TableInfo) error {
+	err := m.DropTableOrView(dbId, tblInfo.ID, false)
+	if err != nil {
+		return err
+	}
+	return checkFlinkDDL(restoreDropOuterTable(dbName, tblInfo))
 }
 
 // DropTableOrView drops table in database.

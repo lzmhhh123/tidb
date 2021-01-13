@@ -114,14 +114,10 @@ func onCreateOuterTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, err
 		// none -> public
 		tbInfo.State = model.StatePublic
 		tbInfo.UpdateTS = t.StartTS
-		err = createOuterTable(t, job, tbInfo)
-
-		failpoint.Inject("checkOwnerCheckAllVersionsWaitTime", func(val failpoint.Value) {
-			if val.(bool) {
-				failpoint.Return(ver, errors.New("mock create table error"))
-			}
-		})
-
+		err = t.CreateOuterTable(job.SchemaName, job.SchemaID, tbInfo)
+		if err != nil {
+			return ver, err
+		}
 		// Finish this job.
 		job.FinishTableJob(model.JobStateDone, model.StatePublic, ver, tbInfo)
 		asyncNotifyEvent(d, &util.Event{Tp: model.ActionCreateTable, TableInfo: tbInfo})

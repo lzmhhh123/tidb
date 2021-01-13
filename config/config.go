@@ -186,6 +186,7 @@ type Config struct {
 	// EnableTCP4Only enables net.Listen("tcp4",...)
 	// Note that: it can make lvs with toa work and thus tidb can get real client ip.
 	EnableTCP4Only bool `toml:"enable-tcp4-only" json:"enable-tcp4-only"`
+	FlinkAddr string `toml:"flink-addr" json:"flink-addr"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
