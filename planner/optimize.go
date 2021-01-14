@@ -14,6 +14,7 @@
 package planner
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"math"
@@ -263,6 +264,28 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 	logic, isLogicalPlan := p.(plannercore.LogicalPlan)
 	if !isLogicalPlan {
 		return p, names, 0, nil
+	}
+
+	// Handle flink outer table.
+	hasOuterTable := func() bool {
+		plist := list.New()
+		plist.PushBack(logic)
+		for plist.Len() > 0 {
+			e := plist.Front()
+			p := e.Value.(plannercore.LogicalPlan)
+			if ds, isDs := p.(*plannercore.DataSource); isDs && ds.TableInfo().Catalog != "" {
+				return true
+			}
+			for _, child := range p.Children() {
+				plist.PushBack(child)
+			}
+		}
+		return false
+	}()
+	if hasOuterTable {
+		finalPlan := &plannercore.PhysicalFlinkExec{Stmt: node}
+		finalPlan.SetSchema(p.Schema())
+		return finalPlan, names, 0, nil
 	}
 
 	// Handle the logical plan statement, use cascades planner if enabled.

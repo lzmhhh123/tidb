@@ -16,6 +16,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"github.com/pingcap/parser/format"
 	"sort"
 	"strings"
 	"sync"
@@ -234,6 +235,8 @@ func (b *executorBuilder) build(p plannercore.Plan) Executor {
 		return b.buildAdminShowTelemetry(v)
 	case *plannercore.AdminResetTelemetryID:
 		return b.buildAdminResetTelemetryID(v)
+	case *plannercore.PhysicalFlinkExec:
+		return b.buildFlinkExec(v)
 	default:
 		if mp, ok := p.(MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -3917,6 +3920,19 @@ func (b *executorBuilder) buildAdminShowTelemetry(v *plannercore.AdminShowTeleme
 
 func (b *executorBuilder) buildAdminResetTelemetryID(v *plannercore.AdminResetTelemetryID) Executor {
 	return &AdminResetTelemetryIDExec{baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID())}
+}
+
+func (b *executorBuilder) buildFlinkExec(v *plannercore.PhysicalFlinkExec) Executor {
+	var sb strings.Builder
+	err := v.Stmt.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags | format.RestoreTpConvertFlinkType, &sb))
+	if err != nil {
+		b.err = err
+		return nil
+	}
+	return &FlinkExec{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		sql: sb.String(),
+	}
 }
 
 func partitionPruning(ctx sessionctx.Context, tbl table.PartitionedTable, conds []expression.Expression, partitionNames []model.CIStr,

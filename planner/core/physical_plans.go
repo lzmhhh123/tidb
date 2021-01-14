@@ -62,7 +62,15 @@ var (
 	_ PhysicalPlan = &PhysicalShuffleReceiverStub{}
 	_ PhysicalPlan = &BatchPointGetPlan{}
 	_ PhysicalPlan = &PhysicalTableSample{}
+	_ PhysicalPlan = &PhysicalFlinkExec{}
 )
+
+// PhysicalFlinkExec is executed by flink
+type PhysicalFlinkExec struct {
+	physicalSchemaProducer
+
+	Stmt ast.Node
+}
 
 // PhysicalTableReader is the table reader in tidb.
 type PhysicalTableReader struct {
