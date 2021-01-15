@@ -33,7 +33,7 @@ func (e *FlinkExec) Open(ctx context.Context) error {
 	case "select":
 		e.sqlType = "query"
 	default:
-		e.sqlType = "insert"
+		e.sqlType = "ddlOrInsert"
 	}
 	return nil
 }

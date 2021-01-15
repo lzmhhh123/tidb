@@ -303,7 +303,7 @@ func (m *Meta) checkTableNotExists(dbKey []byte, tableKey []byte) error {
 }
 
 func checkFlinkDDL(sql string) error {
-	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/ddl", url.Values{"sql": {sql}})
+	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/proxy-server/ddlOrInsert", url.Values{"sql": {sql}})
 	if err != nil {
 		return err
 	}
