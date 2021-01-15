@@ -1752,6 +1752,7 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	}
 	if s.Table.Category.L != "" {
 		tbInfo.OuterOptions = s.OuterArgs
+		tbInfo.Catalog = s.Table.Category.L
 	}
 
 	if err = checkTableInfoValidWithStmt(ctx, tbInfo, s); err != nil {

@@ -302,6 +302,19 @@ func (m *Meta) checkTableNotExists(dbKey []byte, tableKey []byte) error {
 	return errors.Trace(err)
 }
 
+func parseHttpResp(resp *http.Response) (map[string]interface{}, error) {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var res map[string]interface{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func checkFlinkDDL(sql string) error {
 	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/proxy-server/ddlOrInsert", url.Values{"sql": {sql}})
 	if err != nil {
@@ -312,7 +325,7 @@ func checkFlinkDDL(sql string) error {
 	if err != nil {
 		return err
 	}
-	if res["status"].(string) != "SUCCESS" {
+	if res["status"].(bool) != true {
 		return errors.New(res["errorMsg"].(string))
 	}
 	return nil
@@ -344,6 +357,11 @@ func (m *Meta) CreateOuterDatabase(dbInfo *model.DBInfo) error {
 
 // CreateDatabase creates a database with db info.
 func (m *Meta) CreateDatabase(dbInfo *model.DBInfo) error {
+	if strings.Index(dbInfo.Name.L, ".") >= 0 {
+		dbInfo.Catalog = strings.Split(dbInfo.Name.L, ".")[0]
+		dbInfo.Name = model.NewCIStr(strings.Split(dbInfo.Name.L, ".")[1])
+		return m.CreateOuterDatabase(dbInfo)
+	}
 	dbKey := m.dbKey(dbInfo.ID)
 
 	if err := m.checkDBNotExists(dbKey); err != nil {
@@ -404,38 +422,20 @@ func restoreCreateOuterTableStmt(dbName string, tblInfo *model.TableInfo) (strin
 			if err != nil {
 				return "", err
 			}
-			fields += fmt.Sprintf("%s %s,\n", col.Name.L, sb.String())
+			fields += fmt.Sprintf("%s %s,", col.Name.L, sb.String())
 		}
-		return fields[:len(fields)-2], nil
+		return fields[:len(fields)-1], nil
 	}()
 	if err != nil {
 		return "", err
 	}
 	options := func() (options string) {
 		for key, value := range tblInfo.OuterOptions {
-			options += fmt.Sprintf(`'%s' = '%s',\n`, key, value)
+			options += fmt.Sprintf(`'%s'='%s',`, key, value)
 		}
-		return options[:len(options)-2]
-	}
-	return fmt.Sprintf(`
-	create table %s.%s.%s {
-		%s
-	} with (
-		%s
-	)`, tblInfo.Catalog, dbName, tblInfo.Name.L, fields, options), nil
-}
-
-func parseHttpResp(resp *http.Response) (map[string]interface{}, error) {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var res map[string]interface{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+		return options[:len(options)-1]
+	}()
+	return fmt.Sprintf(`create table %s.%s.%s (%s) with (%s)`, tblInfo.Catalog, dbName, tblInfo.Name.L, fields, options), nil
 }
 
 // CreateOuterTable creates a outer table

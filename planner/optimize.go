@@ -279,6 +279,7 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 			for _, child := range p.Children() {
 				plist.PushBack(child)
 			}
+			plist.Remove(e)
 		}
 		return false
 	}()
