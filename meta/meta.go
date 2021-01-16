@@ -315,8 +315,13 @@ func parseHttpResp(resp *http.Response) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func checkFlinkDDL(sql string) error {
-	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/proxy-server/ddlOrInsert", url.Values{"sql": {sql}})
+func checkFlinkDDL(sql string, isHiveTable bool) error {
+	isHiveTableStr := "true"
+	if !isHiveTable {
+		isHiveTableStr = "false"
+	}
+	resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/proxy-server/ddlOrInsert",
+		url.Values{"sql": {sql}, "isHiveTable": {isHiveTableStr}})
 	if err != nil {
 		return err
 	}
@@ -342,7 +347,7 @@ func (m *Meta) CreateOuterDatabase(dbInfo *model.DBInfo) error {
 	if err := m.checkDBNotExists(dbKey); err != nil {
 		return errors.Trace(err)
 	}
-	err := checkFlinkDDL(restoreCreateOuterDatabase(dbInfo))
+	err := checkFlinkDDL(restoreCreateOuterDatabase(dbInfo), false)
 	if err != nil {
 		return err
 	}
@@ -414,7 +419,7 @@ func (m *Meta) CreateTableOrView(dbID int64, tableInfo *model.TableInfo) error {
 	return m.txn.HSet(dbKey, tableKey, data)
 }
 
-func restoreCreateOuterTableStmt(dbName string, tblInfo *model.TableInfo) (string, error) {
+func restoreCreateOuterTableStmt(dbName string, tblInfo *model.TableInfo, isHiveTable bool) (string, error) {
 	fields, err := func() (fields string, err error) {
 		for _, col := range tblInfo.Columns {
 			var sb strings.Builder
@@ -429,13 +434,16 @@ func restoreCreateOuterTableStmt(dbName string, tblInfo *model.TableInfo) (strin
 	if err != nil {
 		return "", err
 	}
+	if isHiveTable {
+		return fmt.Sprintf(`create table %s.%s.%s (%s)ROW FORMAT SERDE  'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'WITH SERDEPROPERTIES (  'field.delim'=',',  'serialization.format'=',')STORED AS INPUTFORMAT  'org.apache.hadoop.mapred.TextInputFormat'OUTPUTFORMAT  'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'`, tblInfo.Catalog, dbName, tblInfo.Name.L, fields), nil
+	}
 	options := func() (options string) {
 		for key, value := range tblInfo.OuterOptions {
 			options += fmt.Sprintf(`'%s'='%s',`, key, value)
 		}
 		return options[:len(options)-1]
 	}()
-	return fmt.Sprintf(`create table %s.%s.%s (%s) with (%s)`, tblInfo.Catalog, dbName, tblInfo.Name.L, fields, options), nil
+	return fmt.Sprintf(`create table hive.%s.%s (%s) with (%s)`, dbName, tblInfo.Name.L, fields, options), nil
 }
 
 // CreateOuterTable creates a outer table
@@ -446,24 +454,27 @@ func (m *Meta) CreateOuterTable(dbName string, dbID int64, tableInfo *model.Tabl
 	}
 	tableKey := m.tableKey(tableInfo.ID)
 
-	sql, err := restoreCreateOuterTableStmt(dbName, tableInfo)
+	isHiveTable := true
+	if tableInfo.Catalog == "" {
+		isHiveTable = false
+	}
+	sql, err := restoreCreateOuterTableStmt(dbName, tableInfo, isHiveTable)
 	if err != nil {
 		return err
 	}
-	err = checkFlinkDDL(sql)
+	err = checkFlinkDDL(sql, isHiveTable)
 	if err != nil {
 		return err
 	}
-	if err := m.checkTableNotExists(dbKey, tableKey); err != nil {
-		return nil
-	}
 
-	data, err := json.Marshal(tableInfo)
-	if err != nil {
-		return errors.Trace(err)
+	if isHiveTable {
+		data, err := json.Marshal(tableInfo)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return m.txn.HSet(dbKey, tableKey, data)
 	}
-
-	return m.txn.HSet(dbKey, tableKey, data)
+	return nil
 }
 
 // CreateTableAndSetAutoID creates a table with tableInfo in database,
@@ -528,7 +539,7 @@ func (m *Meta) DropOuterDatabase(dbInfo *model.DBInfo) error {
 		return errors.Trace(err)
 	}
 
-	return checkFlinkDDL(restoreDropOuterDatabase(dbInfo))
+	return checkFlinkDDL(restoreDropOuterDatabase(dbInfo), false)
 }
 
 // DropDatabase drops whole database.
@@ -566,7 +577,7 @@ func (m *Meta) DropOuterTable(dbId int64, dbName string, tblInfo *model.TableInf
 	if err != nil {
 		return err
 	}
-	return checkFlinkDDL(restoreDropOuterTable(dbName, tblInfo))
+	return checkFlinkDDL(restoreDropOuterTable(dbName, tblInfo), true)
 }
 
 // DropTableOrView drops table in database.

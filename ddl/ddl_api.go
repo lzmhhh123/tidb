@@ -1782,24 +1782,28 @@ func (d *ddl) CreateTableWithInfo(
 
 	var oldViewTblID int64
 	if oldTable, err := is.TableByName(schema.Name, tbInfo.Name); err == nil {
-		err = infoschema.ErrTableExists.GenWithStackByArgs(ast.Ident{Schema: schema.Name, Name: tbInfo.Name})
-		switch onExist {
-		case OnExistIgnore:
-			ctx.GetSessionVars().StmtCtx.AppendNote(err)
-			return nil
-		case OnExistReplace:
-			// only CREATE OR REPLACE VIEW is supported at the moment.
-			if tbInfo.View != nil {
-				if oldTable.Meta().IsView() {
-					oldViewTblID = oldTable.Meta().ID
-					break
+		if tbInfo.Catalog == "" {
+			err = infoschema.ErrTableExists.GenWithStackByArgs(ast.Ident{Schema: schema.Name, Name: tbInfo.Name})
+			switch onExist {
+			case OnExistIgnore:
+				ctx.GetSessionVars().StmtCtx.AppendNote(err)
+				return nil
+			case OnExistReplace:
+				// only CREATE OR REPLACE VIEW is supported at the moment.
+				if tbInfo.View != nil {
+					if oldTable.Meta().IsView() {
+						oldViewTblID = oldTable.Meta().ID
+						break
+					}
+					// The object to replace isn't a view.
+					return ErrWrongObject.GenWithStackByArgs(dbName, tbInfo.Name, "VIEW")
 				}
-				// The object to replace isn't a view.
-				return ErrWrongObject.GenWithStackByArgs(dbName, tbInfo.Name, "VIEW")
+				return err
+			default:
+				return err
 			}
-			return err
-		default:
-			return err
+		} else {
+			tbInfo.Catalog = ""
 		}
 	}
 
