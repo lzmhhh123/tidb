@@ -22,7 +22,7 @@ type FlinkExec struct {
 
 	sqlType string
 	sql     string
-	results [][]interface{}
+	results []interface{}
 	rowIdx  int
 }
 
@@ -40,7 +40,7 @@ func (e *FlinkExec) Open(ctx context.Context) error {
 
 func (e *FlinkExec) Next(ctx context.Context, req *chunk.Chunk) error {
 	if !e.executed {
-		resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/" + e.sqlType, url.Values{"sql": {e.sql}})
+		resp, err := http.PostForm(config.GetGlobalConfig().FlinkAddr + "/proxy-server/" + e.sqlType, url.Values{"sql": {e.sql}})
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (e *FlinkExec) Next(ctx context.Context, req *chunk.Chunk) error {
 			return errors.New(res["errorMsg"].(string))
 		}
 		if e.sqlType == "query" {
-			e.results = res["result"].([][]interface{})
+			e.results = res["result"].([]interface{})
 		}
 		e.executed = true
 	}
@@ -67,7 +67,7 @@ func (e *FlinkExec) Next(ctx context.Context, req *chunk.Chunk) error {
 		if e.rowIdx >= len(e.results) {
 			break
 		}
-		for i, d := range e.results[e.rowIdx] {
+		for i, d := range e.results[e.rowIdx].([]interface{}) {
 			if d == nil {
 				req.AppendNull(i)
 			} else {

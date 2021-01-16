@@ -31,6 +31,9 @@ import (
 )
 
 func (p *basePhysicalPlan) StatsCount() float64 {
+	if p.stats == nil {
+		return 0
+	}
 	return p.stats.RowCount
 }
 

@@ -260,24 +260,28 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 
 	names := p.OutputNames()
 
-	// Handle the non-logical plan statement.
-	logic, isLogicalPlan := p.(plannercore.LogicalPlan)
-	if !isLogicalPlan {
-		return p, names, 0, nil
-	}
-
 	// Handle flink outer table.
 	hasOuterTable := func() bool {
 		plist := list.New()
-		plist.PushBack(logic)
+		plist.PushBack(p)
 		for plist.Len() > 0 {
 			e := plist.Front()
-			p := e.Value.(plannercore.LogicalPlan)
+			p := e.Value.(plannercore.Plan)
 			if ds, isDs := p.(*plannercore.DataSource); isDs && ds.TableInfo().Catalog != "" {
 				return true
 			}
-			for _, child := range p.Children() {
-				plist.PushBack(child)
+			if is, isInsert := p.(*plannercore.Insert); isInsert && is.Table.Meta().Catalog != "" {
+				return true
+			}
+			if logic, isLogicalPlan := p.(plannercore.LogicalPlan); isLogicalPlan {
+				for _, child := range logic.Children() {
+					plist.PushBack(child)
+				}
+			}
+			if phy, isPhy := p.(plannercore.PhysicalPlan); isPhy {
+				for _, child := range phy.Children() {
+					plist.PushBack(child)
+				}
 			}
 			plist.Remove(e)
 		}
@@ -287,6 +291,12 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 		finalPlan := &plannercore.PhysicalFlinkExec{Stmt: node}
 		finalPlan.SetSchema(p.Schema())
 		return finalPlan, names, 0, nil
+	}
+
+	// Handle the non-logical plan statement.
+	logic, isLogicalPlan := p.(plannercore.LogicalPlan)
+	if !isLogicalPlan {
+		return p, names, 0, nil
 	}
 
 	// Handle the logical plan statement, use cascades planner if enabled.

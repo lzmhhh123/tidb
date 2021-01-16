@@ -22,7 +22,7 @@ socket = ""
 run-ddl = true
 
 # Schema lease duration, very dangerous to change only if you know what you do.
-lease = "45s"
+lease = "60s"
 
 # When create table, split a separated region for it. It is recommended to
 # turn off this option if there will be a large number of tables created.
@@ -251,7 +251,7 @@ tcp-keep-alive = true
 cross-join = true
 
 # Stats lease duration, which influences the time of analyze and stats load.
-stats-lease = "3s"
+stats-lease = "120s"
 
 # Run auto analyze worker on this tidb-server.
 run-auto-analyze = true
@@ -271,7 +271,7 @@ pseudo-estimate-ratio = 0.8
 force-priority = "NO_PRIORITY"
 
 # Bind info lease duration, which influences the duration of loading bind info and handling invalid bind.
-bind-info-lease = "3s"
+bind-info-lease = "120s"
 
 # Whether support pushing down aggregation with distinct to cop task
 distinct-agg-push-down = false

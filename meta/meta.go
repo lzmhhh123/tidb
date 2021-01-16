@@ -445,9 +445,6 @@ func (m *Meta) CreateOuterTable(dbName string, dbID int64, tableInfo *model.Tabl
 		return errors.Trace(err)
 	}
 	tableKey := m.tableKey(tableInfo.ID)
-	if err := m.checkTableNotExists(dbKey, tableKey); err != nil {
-		return errors.Trace(err)
-	}
 
 	sql, err := restoreCreateOuterTableStmt(dbName, tableInfo)
 	if err != nil {
@@ -456,6 +453,9 @@ func (m *Meta) CreateOuterTable(dbName string, dbID int64, tableInfo *model.Tabl
 	err = checkFlinkDDL(sql)
 	if err != nil {
 		return err
+	}
+	if err := m.checkTableNotExists(dbKey, tableKey); err != nil {
+		return nil
 	}
 
 	data, err := json.Marshal(tableInfo)
