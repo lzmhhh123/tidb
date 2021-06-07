@@ -38,6 +38,7 @@ import (
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/statistics"
+	"github.com/pingcap/tidb/store/copr"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/types"
@@ -619,7 +620,7 @@ func (e *IndexLookUpExecutor) startTableWorker(ctx context.Context, workCh <-cha
 		}
 		worker.memTracker.AttachTo(e.memTracker)
 		ctx1, cancel := context.WithCancel(ctx)
-		go func() {
+		tableWorkerFunc := func() {
 			defer trace.StartRegion(ctx1, "IndexLookUpTableWorker").End()
 			startTime := time.Now()
 			worker.pickAndExecTask(ctx1)
@@ -628,7 +629,11 @@ func (e *IndexLookUpExecutor) startTableWorker(ctx context.Context, workCh <-cha
 			}
 			cancel()
 			e.tblWorkerWg.Done()
-		}()
+		}
+		err := copr.GoroutinePool.Submit(tableWorkerFunc)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

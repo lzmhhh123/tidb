@@ -26,6 +26,7 @@ import (
 
 	"github.com/cznic/mathutil"
 	"github.com/gogo/protobuf/proto"
+	"github.com/panjf2000/ants/v2"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/kvproto/pkg/coprocessor"
@@ -391,6 +392,16 @@ func (worker *copIteratorWorker) run(ctx context.Context) {
 	}
 }
 
+var GoroutinePool *ants.Pool
+
+func init() {
+	var err error
+	GoroutinePool, err = ants.NewPool(10000, ants.WithPreAlloc(true))
+	if err != nil {
+		panic(err)
+	}
+}
+
 // open starts workers and sender goroutines.
 func (it *copIterator) open(ctx context.Context, enabledRateLimitAction bool) {
 	taskCh := make(chan *copTask, 1)
@@ -410,7 +421,11 @@ func (it *copIterator) open(ctx context.Context, enabledRateLimitAction bool) {
 			replicaReadSeed: it.replicaReadSeed,
 			actionOnExceed:  it.actionOnExceed,
 		}
-		go worker.run(ctx)
+		workerRun := func() { worker.run(ctx) }
+		err := GoroutinePool.Submit(workerRun)
+		if err != nil {
+			panic(err)
+		}
 	}
 	taskSender := &copIteratorTaskSender{
 		taskCh:   taskCh,
